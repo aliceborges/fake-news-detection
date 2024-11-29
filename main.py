@@ -90,6 +90,7 @@ def train_and_infer_with_bert_and_gpt(train_data_file, val_data_file, test_data_
     print(f"Evaluating on validation data with {len(val_texts)} samples...")
     evaluate_model(val_texts, val_labels, trained_model, './results/bert_evaluation_results.csv')
 
+    '''
     # Load test data for inference
     test_data = load_data(test_data_file)
     test_texts = test_data['body_text']
@@ -102,32 +103,63 @@ def train_and_infer_with_bert_and_gpt(train_data_file, val_data_file, test_data_
     # Save results
     save_results(gpt_results, gpt_results_file)
     print(f"GPT results saved to {gpt_results_file}")
-    
+    '''
 
-def main():
-    """Main function to preprocess data and perform training and inference."""
-    # Preprocess Politifact and Snopes data
-    for source, destination in [
-        ("data/raw/Politifact/articles_content.json", "data/processed/Politifact/processed_data.csv"),
-        ("data/raw/Snopes/articles_content.json", "data/processed/Snopes/processed_data.csv")
-    ]:
+
+def preprocess_and_save(source_dest_pairs):
+    """Preprocess and save data for multiple sources."""
+    for source, destination in source_dest_pairs:
         process_and_save_data(source, destination)
 
-    # Training and inference with Politifact
+
+def merge_and_save_datasets(train_paths, val_paths, test_paths, output_paths):
+    """Merge train, validation, and test datasets and save to output paths."""
+    for paths, output_file in zip([train_paths, val_paths, test_paths], output_paths):
+        merged_data = pd.concat([load_data(path) for path in paths])
+        merged_data.to_csv(output_file, index=False)
+
+
+def main():
+    """Main function to preprocess data, train, and perform inference."""
+    # Define file paths
+    source_dest_pairs = [
+        ("data/raw/Politifact/articles_content.json", "data/processed/Politifact/processed_data.csv"),
+        ("data/raw/Snopes/articles_content.json", "data/processed/Snopes/processed_data.csv"),
+    ]
+
+    train_paths = [
+        "data/processed/Politifact/processed_data_train.csv",
+        "data/processed/Snopes/processed_data_train.csv",
+    ]
+    val_paths = [
+        "data/processed/Politifact/processed_data_val.csv",
+        "data/processed/Snopes/processed_data_val.csv",
+    ]
+    test_paths = [
+        "data/processed/Politifact/processed_data_test.csv",
+        "data/processed/Snopes/processed_data_test.csv",
+    ]
+
+    output_paths = [
+        './data/processed/train.csv',
+        './data/processed/val.csv',
+        './data/processed/test.csv',
+    ]
+
+    # Preprocess and save raw data
+    preprocess_and_save(source_dest_pairs)
+
+    # Merge and save processed datasets
+    merge_and_save_datasets(train_paths, val_paths, test_paths, output_paths)
+
+    # Train and perform inference
     train_and_infer_with_bert_and_gpt(
-        './data/processed/Politifact/processed_data_train.csv',
-        './data/processed/Politifact/processed_data_val.csv',
-        './data/processed/Politifact/processed_data_test.csv',
-        './results/gpt_results_politifact.csv'
+        output_paths[0],  # Train file
+        output_paths[1],  # Validation file
+        output_paths[2],  # Test file
+        './results/gpt_results_politifact.csv',
     )
 
-    # Training and inference with Snopes
-    train_and_infer_with_bert_and_gpt(
-        './data/processed/Snopes/processed_data_train.csv',
-        './data/processed/Snopes/processed_data_val.csv',
-        './data/processed/Snopes/processed_data_test.csv',
-        './results/gpt_results_snopes.csv'
-    )
 
 if __name__ == "__main__":
     main()
