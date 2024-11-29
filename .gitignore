@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.db
+
+# Virtual environment
+.venv/
+env/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Data files
+data/processed/Politifact/
+data/processed/Snopes/
+results/
+
+# Environment variables
+.env
