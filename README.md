@@ -13,7 +13,7 @@ This project provides a comprehensive solution for detecting fake news by levera
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/fake-news-detection.git
+   git clone git@github.com:aliceborges/fake-news-detection.git
    cd fake-news-detection
    ```
 

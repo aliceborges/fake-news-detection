@@ -1,4 +1,5 @@
 import openai
+import time
 
 def gpt_inference(texts, api_key):
     """
@@ -15,12 +16,13 @@ def gpt_inference(texts, api_key):
     results = []
 
     for text in texts:
-        response = openai.Completion.create(
-            engine="text-davinci-003",
-            prompt=f"Text: {text}\nIs the news true or false? Respond 'True' or 'False'.",
-            max_tokens=10
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": f"Text: {text}\nIs the news true or false? Respond 'True' or 'False'."}]
         )
-        prediction = 1 if "True" in response.choices[0].text else 0
+        prediction = 1 if "True" in response.choices[0].message['content'] else 0  # Updated to access the new response format
         results.append(prediction)
+
+        time.sleep(30)
     
     return results

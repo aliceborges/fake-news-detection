@@ -43,7 +43,7 @@ class CustomTrainer(Trainer):
         
         return (loss, outputs) if return_outputs else loss
 
-def train_bert_model(texts, labels, output_dir='./results', epochs=3, subset_size=None):
+def train_bert_model(texts, labels, output_dir='./results', epochs=3):
     """
     Trains a BERT model for fake news classification.
 
@@ -54,11 +54,6 @@ def train_bert_model(texts, labels, output_dir='./results', epochs=3, subset_siz
         epochs (int): Number of training epochs.
         subset_size (int): Number of samples to be used for training.
     """
-    # If subset_size is provided, use only that number of samples
-    if subset_size:
-        texts = texts[:subset_size]
-        labels = labels[:subset_size]
-
     # Split the data into training and validation sets
     train_texts, val_texts, train_labels, val_labels = train_test_split(
         texts, labels, test_size=0.2, random_state=42

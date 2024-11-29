@@ -78,8 +78,6 @@ def train_and_infer_with_bert_and_gpt(train_data_file, val_data_file, test_data_
     train_data = load_data(train_data_file)
     train_texts, train_labels = train_data['body_text'], train_data['label']
 
-    class_weights = compute_class_weight('balanced', classes=np.unique(train_labels), y=train_labels)
-    
     # Train BERT model
     print(f"Starting BERT training with {len(train_texts)} samples...")
     trained_model = train_bert_model(train_texts, train_labels)
@@ -104,7 +102,7 @@ def train_and_infer_with_bert_and_gpt(train_data_file, val_data_file, test_data_
     # Save results
     save_results(gpt_results, gpt_results_file)
     print(f"GPT results saved to {gpt_results_file}")
-
+    
 
 def main():
     """Main function to preprocess data and perform training and inference."""
