@@ -16,6 +16,7 @@ env/
 data/processed/Politifact/
 data/processed/Snopes/
 results/
+logs/
 
 # Environment variables
 .env
