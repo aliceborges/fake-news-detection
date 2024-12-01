@@ -1,4 +1,6 @@
 from sklearn.metrics import classification_report
+import openai
+
 
 def evaluate_model(predictions, labels):
     """
@@ -25,8 +27,6 @@ def validate_with_gpt(texts, predictions, confidences, threshold=0.7, api_key=No
     Returns:
         list: Validated predictions with GPT corrections.
     '''
-    import openai
-
     if not api_key:
         raise ValueError("API key for GPT is required.")
 
@@ -45,4 +45,3 @@ def validate_with_gpt(texts, predictions, confidences, threshold=0.7, api_key=No
             validated_predictions.append(pred)
 
     return validated_predictions
-

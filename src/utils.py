@@ -1,5 +1,6 @@
 import pandas as pd
 
+
 def load_data(filepath):
     """
     Loads a CSV file into a DataFrame.
@@ -11,6 +12,7 @@ def load_data(filepath):
         DataFrame: Loaded data.
     """
     return pd.read_csv(filepath)
+
 
 def save_results(predictions, filepath):
     """
