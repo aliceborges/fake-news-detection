@@ -5,3 +5,4 @@ scikit-learn
 nltk
 python-dotenv
 openai==0.28
+language_tool_python

@@ -1,20 +1,23 @@
 import numpy as np
-from transformers import BertTokenizer, BertForSequenceClassification, Trainer, TrainingArguments
-from sklearn.model_selection import train_test_split
+from transformers import RobertaTokenizer, RobertaForSequenceClassification, Trainer, TrainingArguments
 from sklearn.utils.class_weight import compute_class_weight
 import torch
+from sklearn.metrics import accuracy_score, f1_score
+
+def compute_metrics(pred):
+    labels = pred.label_ids
+    preds = pred.predictions.argmax(-1)
+    acc = accuracy_score(labels, preds)
+    f1 = f1_score(labels, preds, average='weighted')
+    return {
+        "accuracy": acc,
+        "f1": f1
+    }
 
 class FakeNewsDataset(torch.utils.data.Dataset):
-    """
-    Custom dataset for training the BERT model.
-
-    Args:
-        encodings (dict): Tokenized data.
-        labels (list): Corresponding labels.
-    """
     def __init__(self, encodings, labels):
         self.encodings = encodings
-        self.labels = labels
+        self.labels = [int(label) for label in labels]
 
     def __len__(self):
         return len(self.labels)
@@ -24,81 +27,66 @@ class FakeNewsDataset(torch.utils.data.Dataset):
         item['labels'] = torch.tensor(self.labels[idx])
         return item
 
-class CustomTrainer(Trainer):
-    def __init__(self, class_weights, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.class_weights = class_weights
 
-    def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
-        # Extract labels from inputs
-        labels = inputs.pop("labels")
-        
-        # Forward pass
-        outputs = model(**inputs)
-        logits = outputs[0]  # Get the logits from the model output
-        
-        # Compute the loss using class weights
-        loss_fct = torch.nn.CrossEntropyLoss(weight=self.class_weights)
-        loss = loss_fct(logits, labels)
-        
-        return (loss, outputs) if return_outputs else loss
-
-def train_bert_model(texts, labels, output_dir='./results', epochs=3):
+def train_bert(train_texts, train_labels, val_texts, val_labels, output_dir='./results', epochs=3):
     """
-    Trains a BERT model for fake news classification.
+    Train a BERT model for binary text classification with provided training and validation data.
+
+    This function fine-tunes a pre-trained RoBERTa model (from the Transformers library) 
+    for a binary classification task. It uses provided training and validation datasets 
+    and outputs the trained model.
 
     Args:
-        texts (list): List of processed texts for training.
-        labels (list): List of labels (true/false).
-        output_dir (str): Directory to save the training results.
-        epochs (int): Number of training epochs.
-        subset_size (int): Number of samples to be used for training.
+        train_texts (list[str]): List of texts for training.
+        train_labels (list[int]): Corresponding labels for training texts.
+        val_texts (list[str]): List of texts for validation.
+        val_labels (list[int]): Corresponding labels for validation texts.
+        output_dir (str, optional): Directory to save model checkpoints and logs. Default is './results'.
+        epochs (int, optional): Number of training epochs. Default is 3.
+
+    Returns:
+        model (BertForSequenceClassification): The fine-tuned BERT model.
     """
-    # Split the data into training and validation sets
-    train_texts, val_texts, train_labels, val_labels = train_test_split(
-        texts, labels, test_size=0.2, random_state=42
-    )
+    tokenizer = RobertaTokenizer.from_pretrained('roberta-large')
 
-    train_texts = [str(text) for text in train_texts]
-    val_texts = [str(text) for text in val_texts]
+    train_texts, val_texts = [str(text) for text in train_texts], [str(text) for text in val_texts]
+    train_labels, val_labels = [str(text) for text in train_labels], [str(text) for text in val_labels]
+    train_encodings = tokenizer(train_texts, truncation=True, padding=True, max_length=256)
+    val_encodings = tokenizer(val_texts, truncation=True, padding=True, max_length=256)
 
-    # Tokenization
-    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-    train_encodings = tokenizer(list(train_texts), truncation=True, padding=True, max_length=128)
-    val_encodings = tokenizer(list(val_texts), truncation=True, padding=True, max_length=128)
+    train_dataset = FakeNewsDataset(train_encodings, train_labels)
+    val_dataset = FakeNewsDataset(val_encodings, val_labels)
 
-    # Create datasets
-    train_dataset = FakeNewsDataset(train_encodings, list(train_labels))
-    val_dataset = FakeNewsDataset(val_encodings, list(val_labels))
-
-    # Calculate class weights
     class_weights = compute_class_weight('balanced', classes=np.unique(train_labels), y=train_labels)
-    class_weights = torch.tensor(class_weights, dtype=torch.float).to('cuda' if torch.cuda.is_available() else 'cpu')  # Move to GPU if necessary
+    class_weights = torch.tensor(class_weights, dtype=torch.float).to('cuda' if torch.cuda.is_available() else 'cpu')
 
-    # BERT model
-    model = BertForSequenceClassification.from_pretrained('bert-base-uncased', num_labels=2)
+    model = RobertaForSequenceClassification.from_pretrained('roberta-large', num_labels=2)
+    model.to('cuda' if torch.cuda.is_available() else 'cpu')
 
-    # Training configuration
     training_args = TrainingArguments(
         output_dir=output_dir,
         eval_strategy="epoch",
-        learning_rate=2e-5,
+        learning_rate=3e-5,
         per_device_train_batch_size=16,
+        per_device_eval_batch_size=16,
         num_train_epochs=epochs,
         weight_decay=0.01,
         logging_dir='./logs',
+        save_strategy="epoch",
+        save_total_limit=2,
+        load_best_model_at_end=True
     )
 
-    # Training
-    trainer = CustomTrainer(
+    trainer = Trainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
-        class_weights=class_weights,  # Pass class weights to the custom trainer
+        compute_metrics=compute_metrics
     )
-    
+
     trainer.train()
-    print("Training completed.")
+    eval_results = trainer.evaluate()
+    print("Validation results:", eval_results)
 
     return model
