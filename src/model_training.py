@@ -1,3 +1,4 @@
+import os
 import numpy as np
 from transformers import RobertaTokenizer, RobertaForSequenceClassification, Trainer, TrainingArguments
 from sklearn.utils.class_weight import compute_class_weight
@@ -31,10 +32,7 @@ class FakeNewsDataset(torch.utils.data.Dataset):
 def train_bert(train_texts, train_labels, val_texts, val_labels, output_dir='./results', epochs=3):
     """
     Train a BERT model for binary text classification with provided training and validation data.
-
-    This function fine-tunes a pre-trained RoBERTa model (from the Transformers library) 
-    for a binary classification task. It uses provided training and validation datasets 
-    and outputs the trained model.
+    If a trained model already exists, it will load it from cache.
 
     Args:
         train_texts (list[str]): List of texts for training.
@@ -47,10 +45,20 @@ def train_bert(train_texts, train_labels, val_texts, val_labels, output_dir='./r
     Returns:
         model (BertForSequenceClassification): The fine-tuned BERT model.
     """
+    
+    model_cache_path = os.path.join(output_dir, 'model.safetensors')
+    
+    if os.path.exists(model_cache_path):
+        print("Modelo encontrado no cache. Carregando o modelo treinado...")
+        model = RobertaForSequenceClassification.from_pretrained(output_dir)
+
+        return model
+
     tokenizer = RobertaTokenizer.from_pretrained('roberta-large')
 
     train_texts, val_texts = [str(text) for text in train_texts], [str(text) for text in val_texts]
     train_labels, val_labels = [str(text) for text in train_labels], [str(text) for text in val_labels]
+    
     train_encodings = tokenizer(train_texts, truncation=True, padding=True, max_length=256)
     val_encodings = tokenizer(val_texts, truncation=True, padding=True, max_length=256)
 
@@ -86,7 +94,11 @@ def train_bert(train_texts, train_labels, val_texts, val_labels, output_dir='./r
     )
 
     trainer.train()
+    
+    print(f"Treinamento concluído. Salvando modelo em {output_dir}.")
+    model.save_pretrained(output_dir)
+    
     eval_results = trainer.evaluate()
-    print("Validation results:", eval_results)
+    print("Resultados de validação:", eval_results)
 
     return model
