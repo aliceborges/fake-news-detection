@@ -6,8 +6,9 @@ from dotenv import load_dotenv
 import numpy as np
 import pandas as pd
 from src.data_preprocessing import preprocess_articles
+from src.gpt_inference import gpt_inference
 from src.model_training import train_bert
-from src.utils import load_data
+from src.utils import load_data, save_results
 from sklearn.metrics import accuracy_score, balanced_accuracy_score, classification_report, precision_score, recall_score, f1_score
 from transformers import RobertaTokenizer
 import torch
@@ -115,26 +116,24 @@ def train_and_infer_with_bert_and_gpt(train_data_file, val_data_file, test_data_
     val_data = load_data(val_data_file)
     val_texts, val_labels = val_data['body_text'], val_data['label']
 
+    # BERT
     print(f"Starting BERT training with {len(train_texts)} samples...")
     trained_model = train_bert(train_texts, train_labels, val_texts, val_labels)
 
     print(f"Test with tests data with {len(test_texts)} samples...")
     test_model(test_texts, test_labels, trained_model, './results/bert_evaluation_results.csv')
-
-    '''
-    # Load test data for inference
-    test_data = load_data(test_data_file)
-    test_texts = test_data['body_text']
-
+    
+    #GPT
     # Inference with GPT
     print(f"Starting GPT inference on test data...")
-    gpt_api_key = os.getenv('GPT_API_KEY')
-    gpt_results = gpt_inference(test_texts, api_key=gpt_api_key)
-    
-    # Save results
-    save_results(gpt_results, gpt_results_file)
-    print(f"GPT results saved to {gpt_results_file}")
-    '''
+    gpt_results = gpt_inference(test_texts)
+
+    gpt_results = np.asarray(gpt_results, dtype=np.int64)
+    test_labels = np.asarray(test_labels, dtype=np.int64)
+    accuracy = accuracy_score(test_labels, gpt_results)
+
+    print(f"GPT model accuracy: {accuracy * 100:.2f}%")
+    save_results(f"GPT model accuracy: {accuracy * 100:.2f}%", gpt_results_file)
 
 
 def preprocess_and_save(source_dest_pairs):

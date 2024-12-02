@@ -31,7 +31,7 @@ class FakeNewsDataset(torch.utils.data.Dataset):
         return item
 
 
-def train_bert(train_texts, train_labels, val_texts, val_labels, output_dir='./results', epochs=3):
+def train_bert(train_texts, train_labels, val_texts, val_labels, output_dir='./cache', epochs=3):
     """
     Train a BERT model for binary text classification with provided training and validation data.
     If a trained model already exists, it will load it from cache.
