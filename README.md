@@ -57,7 +57,6 @@ fake-news-detection/
 │   ├── data_preprocessing.py
 │   ├── gpt_inference.py
 │   ├── model_training.py
-│   ├── model_evaluation.py
 │   └── utils.py
 │
 ├── .env                   # File for environment variables
