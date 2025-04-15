@@ -2,7 +2,7 @@ import os
 import hashlib
 import json
 import time
-from openai import OpenAI
+import openai
 
 def gpt_inference(texts, cache_dir="cache"):
     """
@@ -19,7 +19,7 @@ def gpt_inference(texts, cache_dir="cache"):
     if not os.path.exists(cache_dir):
         os.makedirs(cache_dir)
 
-    client = OpenAI(api_key= os.getenv('GPT_API_KEY'))
+    openai.api_key = os.getenv('GPT_API_KEY')
     results = []
 
     for text in texts:
@@ -33,12 +33,12 @@ def gpt_inference(texts, cache_dir="cache"):
             results.append(cached_response['prediction'])
         else:
             try:
-                response = client.chat.completions.create(
+                response = openai.ChatCompletion.create(
                     messages=[{
                         "role": "user",
                         "content": f"Text: {text}\nIs the news true or false? Respond 'True' or 'False'."
                     }],
-                    model="gpt-4o",
+                    model="gpt-4",
                 )
 
                 prediction = 1 if "True" in response.choices[0].message.content else 0

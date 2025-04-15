@@ -1,8 +1,7 @@
-torch
-transformers
-pandas
-scikit-learn
-nltk
-python-dotenv
+torch==2.6.0
+transformers==4.51.3
+pandas==2.2.3
+scikit-learn==1.6.1
+nltk==3.9.1
+python-dotenv==1.1.0
 openai==0.28
-language_tool_python

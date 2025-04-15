@@ -176,6 +176,11 @@ def main():
         './data/processed/test.csv',
     ]
 
+    if not os.path.exists('data/processed/Politifact'):
+        os.makedirs('data/processed/Politifact')
+    if not os.path.exists('data/processed/Snopes'):
+        os.makedirs('data/processed/Snopes')
+
     preprocess_and_save(source_dest_pairs)
     merge_and_save_datasets(train_paths, val_paths, test_paths, output_paths)
     train_and_infer_with_bert_and_gpt(
