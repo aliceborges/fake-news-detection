@@ -13,8 +13,7 @@ env/
 .ipynb_checkpoints
 
 # Data files
-data/processed/Politifact/
-data/processed/Snopes/
+data/processed/
 results/
 logs/
 cache/
