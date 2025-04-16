@@ -1,6 +1,6 @@
+import os
 from datetime import datetime
 import hashlib
-import os
 import pickle
 from dotenv import load_dotenv
 import numpy as np
@@ -9,7 +9,9 @@ from src.data_preprocessing import preprocess_articles
 from src.gpt_inference import gpt_inference
 from src.model_training import train_bert
 from src.utils import load_data, save_results
-from sklearn.metrics import accuracy_score, balanced_accuracy_score, classification_report, precision_score, recall_score, f1_score
+from sklearn.metrics import (accuracy_score, balanced_accuracy_score, 
+                            classification_report, precision_score, 
+                            recall_score, f1_score)
 from transformers import RobertaTokenizer
 import torch
 
@@ -91,104 +93,108 @@ def test_model(texts, true_labels, model, output_file, cache_dir="cache", thresh
     print(f"Test results saved to {output_file}")
 
 
-def process_and_save_data(input_file, output_file):
-    """Preprocess and save data from a JSON file."""
-    preprocess_articles(input_file, output_file)
-    print(f"Data processed and saved to {output_file}")
+def should_run(component: str) -> bool:
+    """Check if component should run based on environment variable"""
+    return os.getenv(component.upper()) == 'True'
 
 
-def train_and_infer_with_bert_and_gpt(train_data_file, val_data_file, test_data_file, gpt_results_file):
-    """Train the BERT model and perform inference with GPT.
-
-    Args:
-        train_data_file (str): Path to the training data.
-        val_data_file (str): Path to the validation data.
-        test_data_file (str): Path to the test data.
-        gpt_results_file (str): Path to save GPT results.
-    """
-    # Texts for tests
-    test_data = load_data(test_data_file)
-    test_texts, test_labels = test_data['body_text'], test_data['label']
-    # Texts for training
-    train_data = load_data(train_data_file)
-    train_texts, train_labels = train_data['body_text'], train_data['label']
-    # Texts for evaluation
-    val_data = load_data(val_data_file)
-    val_texts, val_labels = val_data['body_text'], val_data['label']
-
-    # BERT
-    print(f"Starting BERT training with {len(train_texts)} samples...")
-    trained_model = train_bert(train_texts, train_labels, val_texts, val_labels)
-
-    print(f"Test with tests data with {len(test_texts)} samples...")
-    test_model(test_texts, test_labels, trained_model, './results/bert_evaluation_results.csv')
+def process_source(source_name: str, input_path: str, output_dir: str) -> list:
+    """Process single data source if enabled"""
+    if not should_run(source_name):
+        return []
     
-    #GPT
-    # Inference with GPT
-    print(f"Starting GPT inference on test data...")
-    gpt_results = gpt_inference(test_texts)
+    output_path = f"{output_dir}/{source_name}/processed_data.csv"
+    os.makedirs(f"{output_dir}/{source_name}", exist_ok=True)
+    preprocess_articles(input_path, output_path, source_name)
+    return [
+        f"{output_dir}/{source_name}/processed_data_train.csv",
+        f"{output_dir}/{source_name}/processed_data_val.csv",
+        f"{output_dir}/{source_name}/processed_data_test.csv"
+    ]
+
+
+def merge_datasets(file_paths: list, output_file: str) -> str:
+    """Merge dataset files from enabled sources"""
+    if not file_paths:
+        return None
+    pd.concat([pd.read_csv(f) for f in file_paths]).to_csv(output_file, index=False)
+    return output_file
+
+
+def run_bert_training(train_file: str, val_file: str, test_file: str):
+    """Run BERT training and evaluation if enabled"""
+    if not should_run('BERT'):
+        return
+
+    train_data = load_data(train_file)
+    val_data = load_data(val_file)
+    test_data = load_data(test_file)
+
+    print(f"Starting BERT training with {len(train_data['body_text'])} samples...")
+    trained_model = train_bert(
+        train_data['body_text'], 
+        train_data['binary_label'],
+        val_data['body_text'],
+        val_data['binary_label']
+    )
+
+    print(f"Testing BERT model with {len(test_data['body_text'])} samples...")
+    test_model(
+        test_data['body_text'], 
+        test_data['binary_label'],
+        trained_model, 
+        './results/bert_evaluation_results.csv'
+    )
+
+
+def run_gpt_inference(test_file: str):
+    """Run GPT inference if enabled"""
+    if not should_run('GPT'):
+        return
+
+    test_data = load_data(test_file)
+    print(f"Starting GPT inference on {len(test_data['body_text'])} samples...")
+    gpt_results = gpt_inference(test_data['body_text'])
 
     gpt_results = np.asarray(gpt_results, dtype=np.int64)
-    test_labels = np.asarray(test_labels, dtype=np.int64)
+    test_labels = np.asarray(test_data['binary_label'], dtype=np.int64)
+    
     accuracy = accuracy_score(test_labels, gpt_results)
-
+    
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    output_file = f"./results/gpt_evaluation_results_{timestamp}.csv"
+    
+    pd.DataFrame({'Metric': ['Accuracy'], 'Score': [accuracy]}).to_csv(output_file, index=False)
+    
+    print(f"GPT evaluation results saved to {output_file}")
     print(f"GPT model accuracy: {accuracy * 100:.2f}%")
-    save_results(f"GPT model accuracy: {accuracy * 100:.2f}%", gpt_results_file)
-
-
-def preprocess_and_save(source_dest_pairs):
-    """Preprocess and save data for multiple sources."""
-    for source, destination in source_dest_pairs:
-        process_and_save_data(source, destination)
-
-
-def merge_and_save_datasets(train_paths, val_paths, test_paths, output_paths):
-    """Merge train, validation, and test datasets and save to output paths."""
-    for paths, output_file in zip([train_paths, val_paths, test_paths], output_paths):
-        merged_data = pd.concat([load_data(path) for path in paths])
-        merged_data.to_csv(output_file, index=False)
 
 
 def main():
-    """Main function to preprocess data, train, and perform inference."""
-    
-    source_dest_pairs = [
-        ("data/raw/Politifact/articles_content.json", "data/processed/Politifact/processed_data.csv"),
-        ("data/raw/Snopes/articles_content.json", "data/processed/Snopes/processed_data.csv"),
-    ]
+    """Main execution flow controlled by environment variables"""
+    data_config = {
+        'Politifact': ('data/raw/Politifact/articles_content.json', 'data/processed'),
+        'Snopes': ('data/raw/Snopes/articles_content.json', 'data/processed')
+    }
 
-    train_paths = [
-        "data/processed/Politifact/processed_data_train.csv",
-        "data/processed/Snopes/processed_data_train.csv",
-    ]
-    val_paths = [
-        "data/processed/Politifact/processed_data_val.csv",
-        "data/processed/Snopes/processed_data_val.csv",
-    ]
-    test_paths = [
-        "data/processed/Politifact/processed_data_test.csv",
-        "data/processed/Snopes/processed_data_test.csv",
-    ]
+    processed_files = []
+    for source, (input_path, output_dir) in data_config.items():
+        processed_files.extend(process_source(source, input_path, output_dir))
 
-    output_paths = [
-        './data/processed/train.csv',
-        './data/processed/val.csv',
-        './data/processed/test.csv',
-    ]
+    if not processed_files and (should_run('BERT') or should_run('GPT')):
+        print("No data sources enabled but models requested. Check your .env file.")
+        return
 
-    if not os.path.exists('data/processed/Politifact'):
-        os.makedirs('data/processed/Politifact')
-    if not os.path.exists('data/processed/Snopes'):
-        os.makedirs('data/processed/Snopes')
+    train_files = [f for f in processed_files if 'train' in f]
+    val_files = [f for f in processed_files if 'val' in f]
+    test_files = [f for f in processed_files if 'test' in f]
 
-    preprocess_and_save(source_dest_pairs)
-    merge_and_save_datasets(train_paths, val_paths, test_paths, output_paths)
-    train_and_infer_with_bert_and_gpt(
-        output_paths[0],  # Train file
-        output_paths[1],  # Validation file
-        output_paths[2],  # Test file
-        './results/gpt_results_politifact.csv',
-    )
+    train_path = merge_datasets(train_files, './data/processed/train.csv')
+    val_path = merge_datasets(val_files, './data/processed/val.csv')
+    test_path = merge_datasets(test_files, './data/processed/test.csv')
+
+    run_bert_training(train_path, val_path, test_path)
+    run_gpt_inference(test_path)
 
 
 if __name__ == "__main__":

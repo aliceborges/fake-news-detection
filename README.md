@@ -28,9 +28,18 @@ This project provides a comprehensive solution for detecting fake news by levera
    pip install -r requirements.txt
    ```
 
-4. Create a `.env` file in the root directory and include your OpenAI API key:
+4. Create a .env file in the root directory with the following variables:
    ```plaintext
-   GPT_API_KEY='your_openai_api_key_here'
+   # Data Sources
+   POLITIFACT=True          # Set to False to disable Politifact processing
+   SNOPES=True              # Set to False to disable Snopes processing
+
+   # Models
+   BERT=True                # Set to False to disable BERT training
+   GPT=True                 # Set to False to disable GPT inference
+
+   # API Keys
+   GPT_API_KEY='your_openai_api_key_here'  # Required for GPT inference
    ```
 
 ## How to Use
@@ -67,12 +76,4 @@ fake-news-detection/
 
 
 ## System Requirements
-
-- Python version 3.7 or higher
-- `transformers`
-- `torch`
-- `pandas`
-- `scikit-learn`
-- `nltk`
-- `python-dotenv`
-- `openai`
+Python version 3.13 or higher.
